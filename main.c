@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <stdbool.h>
 
+u_int32_t INT;
+
 // Matrikelnummer 582595 ; Aaron Oertel <oertelaa@informatik.hu-berlin.de>
 
 struct InputLine {
@@ -473,7 +475,9 @@ int main(int argc, char *argv[]) {
 
     V++;
 
-    if (startNode == -1) {
+
+    if (firstLine == true) {
+        printf("No start node, end node or max weight specified\n");
         exitEarly(inputLinkedList, campList);
     }
 
