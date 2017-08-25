@@ -30,14 +30,14 @@ struct AdjList {
     struct AdjListNode *head;  // pointer to head node of list
 };
 
-struct SchutzhuettenListe {
-    struct SchutzhuetteElement* head;
+struct CampList {
+    struct CampElement* head;
     int counter;
 };
 
-struct SchutzhuetteElement {
+struct CampElement {
     int nodeNumber;
-    struct SchutzhuetteElement* nextSchutzhuette;
+    struct CampElement* nextCamp;
 };
 
 // A structure to represent a graph. A graph is an array of adjacency lists.
@@ -301,39 +301,129 @@ void insertLineIntoLinkedList(struct InputLinkedList* linkedList, int from, int 
     linkedList->count++;
 }
 
-void insertShIntoShList(struct SchutzhuettenListe *shList, int nodeNumber) {
-    struct SchutzhuetteElement* sh = (struct SchutzhuetteElement*) malloc(sizeof(struct SchutzhuetteElement));
-    sh->nextSchutzhuette = shList->head;
+void insertShIntoShList(struct CampList *shList, int nodeNumber) {
+    struct CampElement* sh = (struct CampElement*) malloc(sizeof(struct CampElement));
+    sh->nextCamp = shList->head;
     sh->nodeNumber = nodeNumber;
     shList->head = sh;
     shList->counter++;
 }
 
 
-bool searchShInList(struct SchutzhuettenListe* shList, int nodeNumber) {
+bool searchShInList(struct CampList* shList, int nodeNumber) {
 
-    struct SchutzhuetteElement* currentSh = shList->head;
+    struct CampElement* currentSh = shList->head;
 
     // Construct graph from saved input
     while (currentSh != NULL) {
         if (nodeNumber == currentSh->nodeNumber) {
             return true;
         }
-        currentSh = currentSh->nextSchutzhuette;
+        currentSh = currentSh->nextCamp;
     }
 
     return false;
 }
 
 
-// Driver program to test above functions
+/**
+ * Frees each line of the input saved as an InputLinkedList
+ * @param inputLinkedList
+ * @return
+ */
+int freeInput(struct InputLinkedList* inputLinkedList) {
+
+    struct InputLine* currentLine = inputLinkedList->head;
+    struct InputLine* tempLine;
+
+    // Construct graph from saved input and free input line
+    while (currentLine != NULL) {
+        tempLine = currentLine->next;
+        free(currentLine);
+        currentLine = tempLine;
+    }
+
+    free(inputLinkedList);
+}
+
+
+/**
+ * Free the graphs including the array of linked lists and their items
+ * @param graph - containing the graph info as an adjacency list (array of linked lists) -> hence we need to iterate through the
+ * linked list for each of the V nodes and free each element of the adjacency list
+ * @param V - this is the number of nodes in the graph -> used to iterate over the array of linked lists
+ */
+void freeGraph(struct Graph* graph, int V) {
+
+    for (int j = 0; j < V; ++j) {
+
+        // we are done with graph so we should free it
+        struct AdjListNode* adjListNode = graph->array[j].head;
+        struct AdjListNode* tempAdjListNode;
+
+        while (adjListNode != NULL) {
+            tempAdjListNode = adjListNode->next;
+            free(adjListNode);
+            adjListNode = tempAdjListNode;
+        }
+
+    }
+
+    free(graph->array);
+    free(graph);
+}
+
+
+/**
+ * Free the list of camps saved from the input
+ * @param campList - read from the input
+ */
+void freeCampList(struct CampList *campList) {
+    struct CampElement* elementPointer = campList->head;
+    struct CampElement* tempElement;
+
+    while (elementPointer != NULL) {
+        tempElement = elementPointer->nextCamp;
+        free(elementPointer);
+        elementPointer = tempElement;
+    }
+
+    free(campList);
+}
+
+
+/**
+ * This is used if we need to exit the program early if the input is invalid
+ * @param inputLinkedList - which is the input to the program
+ * @param campList - which is also input to the program
+ */
+void exitEarly(struct InputLinkedList* inputLinkedList, struct CampList* campList) {
+    freeInput(inputLinkedList);
+    freeCampList(campList);
+    exit(-1);
+}
+
+/**
+ *
+ * Driver program which has the following functionality :
+ * 1. Read the input from stdin and save it in linked lists
+ * 2. Validate the input and exit if necessary
+ * 3. Compute the distances from the start node to all other nodes using dijkstra's algorithm
+ * 4. Compute the distances from the end node to all other nodes using dijkstra's algorithm and the transposed graph
+ * 5. Outputs the nodes that fulfill the following criteria :
+ *      a) Distance from start node is smaller than max weight
+ *      b) Distance from end node is smaller than max weight
+ *      c) Is in the linked list of camps stored from the input
+ * 6. Frees the memory allocated by malloc
+ *
+ */
 int main(int argc, char *argv[]) {
 
 
     // Anzahl der Knoten
     int V = 0;
-    int startNode = 0;
-    int endNode = 0;
+    int startNode = -1;
+    int endNode = -1;
     long maxWeight = 0;
     bool firstLine = true;
 
@@ -346,9 +436,9 @@ int main(int argc, char *argv[]) {
     inputLinkedList->count = 0;
     inputLinkedList->head = NULL;
 
-    struct SchutzhuettenListe* schutzhuettenListe = (struct SchutzhuettenListe*) malloc(sizeof(struct SchutzhuettenListe));
-    schutzhuettenListe->counter = 0;
-    schutzhuettenListe->head = NULL;
+    struct CampList* campList = (struct CampList*) malloc(sizeof(struct CampList));
+    campList->counter = 0;
+    campList->head = NULL;
 
 
     /* read at least 63 characters or unitl newline charater is encountered with */
@@ -376,20 +466,24 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
         } else {
             //printf("%d\n", fromNode);
-            insertShIntoShList(schutzhuettenListe, fromNode);
+            insertShIntoShList(campList, fromNode);
         }
     }
 
 
     V++;
 
+    if (startNode == -1) {
+        exitEarly(inputLinkedList, campList);
+    }
+
     if (startNode == endNode) {
         printf("%d\n", startNode);
-        exit(-1);
+        exitEarly(inputLinkedList, campList);
     }
 
     if (endNode > V) {
-        exit(-1);
+        exitEarly(inputLinkedList, campList);
     }
 
     struct Graph* graph = createGraph(V);
@@ -411,50 +505,17 @@ int main(int argc, char *argv[]) {
 
     long *dist = dijkstra(graph, startNode, maxWeight);
 
-
-    for (int j = 0; j < V; ++j) {
-
-        // we are done with graph so we should free it
-        struct AdjListNode* adjListNode = graph->array[j].head;
-        struct AdjListNode* tempAdjListNode;
-
-        while (adjListNode != NULL) {
-            tempAdjListNode = adjListNode->next;
-            free(adjListNode);
-            adjListNode = tempAdjListNode;
-        }
-
-
-    }
-
-    free(graph->array);
-    free(graph);
-
+    freeGraph(graph, V);
 
     long *reverseDist = dijkstra(reversedGraph, endNode, maxWeight);
 
-
-    for (int k = 0; k < V; ++k) {
-        // we are done with graph so we should free it
-        struct AdjListNode* revAdjListNode = reversedGraph->array[k].head;
-        struct AdjListNode* revTempAdjListNode;
-
-        while (revAdjListNode != NULL) {
-            revTempAdjListNode = revAdjListNode->next;
-            free(revAdjListNode);
-            revAdjListNode = revTempAdjListNode;
-        }
-    }
-
-
-    free(reversedGraph->array);
-    free(reversedGraph);
+    freeGraph(reversedGraph, V);
 
 
     for (int i = 0; i < V; ++i) {
 
         if (dist[i] <= maxWeight && reverseDist[i] <= maxWeight) {
-            if (searchShInList(schutzhuettenListe, i)) {
+            if (searchShInList(campList, i)) {
                 printf("%d\n", i);
             }
         }
@@ -463,16 +524,7 @@ int main(int argc, char *argv[]) {
     free(dist);
     free(reverseDist);
 
-    struct SchutzhuetteElement* elementPointer = schutzhuettenListe->head;
-    struct SchutzhuetteElement* tempElement;
-
-    while (elementPointer != NULL) {
-        tempElement = elementPointer->nextSchutzhuette;
-        free(elementPointer);
-        elementPointer = tempElement;
-    }
-
-    free(schutzhuettenListe);
+    freeCampList(campList);
 
     return 0;
 }
