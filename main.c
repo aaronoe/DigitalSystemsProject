@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
-typedef u_int32_t Int;
-typedef u_int64_t Long;
+typedef uint32_t Int;
+typedef uint64_t Long;
 
 // Matrikelnummer 582595 ; Aaron Oertel <oertelaa@informatik.hu-berlin.de>
 
@@ -434,6 +436,7 @@ int main(int argc, char *argv[]) {
     Int fromNode, toNode;
     Long weight;
     char line[64];
+    char eol;
 
     struct InputLinkedList* inputLinkedList = (struct InputLinkedList*) malloc(sizeof(struct InputLinkedList));
     inputLinkedList->count = 0;
@@ -449,14 +452,29 @@ int main(int argc, char *argv[]) {
     /* if the first character is a newline, then it's an empty line of input */
     while ((fgets(line, sizeof line, stdin) != NULL) && (line[0] != '\n')) {
         /* parse the read line with sscanf */
+
         if (sscanf(line, "%d%d%li", &fromNode, &toNode, &weight) == 3) {
-            //printf("%d %d %li\n", fromNode, toNode, weight);
+
+            if (sscanf(line, "%d%d%li%c", &fromNode, &toNode, &weight, &eol) == 4) {
+
+
+
+            }
+
+
+            if (eol != '\n') {
+                printf("Falscher input\n");
+                exitEarly(inputLinkedList, campList);
+            }
+
             if (firstLine) {
                 startNode = fromNode;
                 endNode = toNode;
                 maxWeight = weight;
                 firstLine = false;
+
             } else {
+
                 insertLineIntoLinkedList(inputLinkedList, fromNode, toNode, weight);
                 // Anzahl der Knoten zählen
                 if (fromNode > V) {
@@ -467,19 +485,38 @@ int main(int argc, char *argv[]) {
                 }
             }
             fflush(stdout);
-        } else {
+
+        } else if (sscanf(line, "%d%c", &fromNode, &eol) == 2) {
+
+            // Case : One Int type number and a character which should be the linefeed
+
+            if (eol != '\n') {
+                printf("Falscher input\n");
+                exitEarly(inputLinkedList, campList);
+            }
+
             if (firstLine) {
                 printf("No start node, end node or max weight specified\n");
                 exitEarly(inputLinkedList, campList);
             }
             //printf("%d\n", fromNode);
             insertShIntoShList(campList, fromNode);
+
+        } else if (sscanf(line, "%d", &fromNode) == 1) {
+
+            // This can be the last line
+            if (firstLine) {
+                printf("No start node, end node or max weight specified\n");
+                exitEarly(inputLinkedList, campList);
+            }
+            //printf("%d\n", fromNode);
+            insertShIntoShList(campList, fromNode);
+
         }
     }
 
 
     V++;
-
 
     if (firstLine == true) {
         printf("No start node, end node or max weight specified\n");
