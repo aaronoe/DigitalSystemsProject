@@ -4,10 +4,10 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 
 typedef uint32_t Int;
 typedef uint64_t Long;
+typedef int64_t LongSigned;
 
 // Matrikelnummer 582595 ; Aaron Oertel <oertelaa@informatik.hu-berlin.de>
 
@@ -97,7 +97,6 @@ struct MinHeapNode {
 // Structure to represent a min heap
 struct MinHeap {
     Int size;      // Number of heap nodes present currently
-    Int capacity;  // Capacity of min heap
     Int *pos;     // This is needed for decreaseKey()
     struct MinHeapNode **array;
 };
@@ -117,7 +116,6 @@ struct MinHeap* createMinHeap(Int capacity) {
             (struct MinHeap*) malloc(sizeof(struct MinHeap));
     minHeap->pos = (Int *)malloc(capacity * sizeof(Int));
     minHeap->size = 0;
-    minHeap->capacity = capacity;
     minHeap->array =
             (struct MinHeapNode**) malloc(capacity * sizeof(struct MinHeapNode*));
     return minHeap;
@@ -431,10 +429,11 @@ int main(int argc, char *argv[]) {
     Int endNode = 0;
     Long maxWeight = 0;
     bool firstLine = true;
+    Int maxNumber = 4000000000;
 
     // Input lesen
-    Int fromNode, toNode;
-    Long weight;
+    LongSigned fromNode, toNode;
+    LongSigned weight;
     char line[64];
     char eol;
 
@@ -453,58 +452,62 @@ int main(int argc, char *argv[]) {
     while ((fgets(line, sizeof line, stdin) != NULL) && (line[0] != '\n')) {
         /* parse the read line with sscanf */
 
-        if (sscanf(line, "%d%d%li", &fromNode, &toNode, &weight) == 3) {
+        if (sscanf(line, "%li%li%li", &fromNode, &toNode, &weight) == 3) {
 
-            if (sscanf(line, "%d%d%li%c", &fromNode, &toNode, &weight, &eol) == 4) {
-
-
-
-            }
-
-
-            if (eol != '\n') {
-                printf("Falscher input\n");
+            // Check if the input consists of negative or too large numbers, since
+            if (fromNode >= maxNumber || toNode >= maxNumber || weight >= maxNumber
+                || fromNode < 0 || toNode < 0 || weight < 0) {
+                printf("Bad input\n");
                 exitEarly(inputLinkedList, campList);
             }
 
+            if (sscanf(line, "%li%li%li%c", &fromNode, &toNode, &weight, &eol) == 4) {
+
+                if (eol != '\n') {
+                    printf("Bad input\n");
+                    exitEarly(inputLinkedList, campList);
+                }
+
+            }
+
             if (firstLine) {
-                startNode = fromNode;
-                endNode = toNode;
-                maxWeight = weight;
+                startNode = (Int) fromNode;
+                endNode = (Int) toNode;
+                maxWeight = (Long) weight;
                 firstLine = false;
 
             } else {
 
-                insertLineIntoLinkedList(inputLinkedList, fromNode, toNode, weight);
+                insertLineIntoLinkedList(inputLinkedList, (Int) fromNode, (Int) toNode, (Long) weight);
                 // Anzahl der Knoten zählen
                 if (fromNode > V) {
-                    V = fromNode;
+                    V = (Int) fromNode;
                 }
                 if (toNode > V) {
-                    V = toNode;
+                    V = (Int) toNode;
                 }
             }
             fflush(stdout);
 
-        } else if (sscanf(line, "%d%c", &fromNode, &eol) == 2) {
+        } else if (sscanf(line, "%li", &fromNode) == 1) {
 
-            // Case : One Int type number and a character which should be the linefeed
-
-            if (eol != '\n') {
-                printf("Falscher input\n");
+            if (fromNode >= maxNumber || fromNode < 0) {
+                printf("Bad input\n");
                 exitEarly(inputLinkedList, campList);
             }
 
-            if (firstLine) {
-                printf("No start node, end node or max weight specified\n");
-                exitEarly(inputLinkedList, campList);
+            if (sscanf(line, "%li%c", &fromNode, &eol) == 2) {
+
+                // Case : One Int type number and a character which should be the linefeed
+
+                if (eol != '\n') {
+                    printf("Falscher input\n");
+                    exitEarly(inputLinkedList, campList);
+                }
+
             }
-            //printf("%d\n", fromNode);
-            insertShIntoShList(campList, fromNode);
 
-        } else if (sscanf(line, "%d", &fromNode) == 1) {
 
-            // This can be the last line
             if (firstLine) {
                 printf("No start node, end node or max weight specified\n");
                 exitEarly(inputLinkedList, campList);
@@ -524,7 +527,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (startNode == endNode) {
-        printf("%d\n", startNode);
+        printf("%u\n", startNode);
         exitEarly(inputLinkedList, campList);
     }
 
@@ -549,11 +552,11 @@ int main(int argc, char *argv[]) {
 
     free(inputLinkedList);
 
-    Long *dist = dijkstra(graph, startNode);
+    Long *dist = dijkstra(graph, (Int) startNode);
 
     freeGraph(graph, V);
 
-    Long *reverseDist = dijkstra(reversedGraph, endNode);
+    Long *reverseDist = dijkstra(reversedGraph, (Int) endNode);
 
     freeGraph(reversedGraph, V);
 
