@@ -11,6 +11,12 @@ typedef int64_t LongSigned;
 
 // Matrikelnummer 582595 ; Aaron Oertel <oertelaa@informatik.hu-berlin.de>
 
+/**
+ * Used to temporarily store an input line of the kind:
+ * 0 1 3924456639
+ * All numbers are between 0 and 4,000,000,000 and hence we need at least 32 bit to store them.
+ * The from and to values are stored as unsigned int and the weight as an unsigned long
+ */
 struct InputLine {
     Int from, to;
     Long weight;
@@ -18,281 +24,374 @@ struct InputLine {
 };
 
 
+/**
+ * Used to store the lines read from stdin
+ */
 struct InputLinkedList {
     struct InputLine *head;
     Int count;
 };
 
-// A structure to represent a node in adjacency list
+/**
+ * one element of the AdjList, is used for a node's adjacency list and each element
+ * contains information on an edge from that node to a different one
+ */
 struct AdjListNode {
-    Int dest;
+    Int destination;
     Long weight;
-    struct AdjListNode* next;
+    struct AdjListNode* nextNode;
 };
 
-// A structure to represent an adjacency liat
+/**
+ * Used by the dijkstra algorithm to compute the distances
+ */
 struct AdjList {
-    struct AdjListNode *head;  // pointer to head node of list
+    struct AdjListNode* head;  // pointer to head node of list
 };
 
+/**
+ * An Adjacency List to store the camps from the input
+ */
 struct CampList {
     struct CampElement* head;
     Int counter;
 };
 
+/**
+ * One element of the CampList. It is used to store a single node number from the input
+ */
 struct CampElement {
     Int nodeNumber;
     struct CampElement* nextCamp;
 };
 
-// A structure to represent a graph. A graph is an array of adjacency lists.
-// Size of array will be V (number of vertices in graph)
+
+/**
+ * Data structure to represent a graph used by Dijkstra's algorithm.
+ * For each node we store an AdjList of this node's outgoing edges
+ */
 struct Graph {
-    Int V;
-    struct AdjList* array;
+    Int numberOfNodes;
+    struct AdjList* adjListArray;
 };
 
-// A utility function to create a new adjacency list node
-struct AdjListNode* newAdjListNode(Int dest, Long weight) {
-    struct AdjListNode* newNode =
-            (struct AdjListNode*) malloc(sizeof(struct AdjListNode));
-    newNode->dest = dest;
+
+/**
+ * Creates a new AdjListNode representing an edge from a node
+ * @param destination of the edge
+ * @param weight of the edge
+ * @return the AdjListNode containing the edge's information
+ */
+struct AdjListNode* createAdjListNode(Int destination, Long weight) {
+    struct AdjListNode* newNode = (struct AdjListNode*) malloc(sizeof(struct AdjListNode));
+    newNode->destination = destination;
     newNode->weight = weight;
-    newNode->next = NULL;
+    newNode->nextNode = NULL;
     return newNode;
 }
 
-// A utility function that creates a graph of V vertices
-struct Graph* createGraph(Int V) {
+
+/**
+ * Creates a graph of nodeCount edges, this number is needed to create the array
+ * of AdjLists used to store the edge information
+ * @param nodeCount number of node's the graph contains
+ * @return a pointer to a Graph structure
+ */
+struct Graph* createGraph(Int nodeCount) {
 
     struct Graph* graph = (struct Graph*) malloc(sizeof(struct Graph));
-    graph->V = V;
 
-    // Create an array of adjacency lists.  Size of array will be V
-    graph->array = (struct AdjList*) malloc(V * sizeof(struct AdjList));
+    graph->numberOfNodes = nodeCount;
 
-    // Initialize each adjacency list as empty by making head as NULL
-    for (Int i = 0; i < V; ++i)
-        graph->array[i].head = NULL;
+    // allocate memory for nodeCount AdjLists
+    graph->adjListArray = (struct AdjList*) malloc(nodeCount * sizeof(struct AdjList));
+
+    // Make the first element of each AdjList null
+    for (Int i = 0; i < nodeCount; ++i) {
+        graph->adjListArray[i].head = NULL;
+    }
 
     return graph;
 }
 
-// Adds an edge to an undirected graph
-void addEdge(struct Graph* graph, Int src, Int dest, Long weight) {
 
-    // Add an edge from src to dest.  A new node is added to the adjacency
-    // list of src.  The node is added at the begining
-    struct AdjListNode* newNode = newAdjListNode(dest, weight);
-    newNode->next = graph->array[src].head;
-    graph->array[src].head = newNode;
+/**
+ * Adds an edge to the graph at the given source's adjacency list's head
+ * @param graph where the edge gets added to
+ * @param source of the edge
+ * @param destination of the edge
+ * @param weight of the edge
+ */
+void addEdgeToGraph(struct Graph *graph, Int source, Int destination, Long weight) {
+    // Create a new node and add it as the head of source's AdjList
+    struct AdjListNode* newNode = createAdjListNode(destination, weight);
+    newNode->nextNode = graph->adjListArray[source].head;
+    graph->adjListArray[source].head = newNode;
 }
 
-// Structure to represent a min heap node
+
+/**
+ * Represents a node in a MinHeap
+ */
 struct MinHeapNode {
-    Int  v;
-    Long dist;
+    Int node;
+    Long distance;
 };
 
-// Structure to represent a min heap
+
+/**
+ * Structure to represent a MinHeap
+ */
 struct MinHeap {
-    Int size;      // Number of heap nodes present currently
-    Int *pos;     // This is needed for decreaseKey()
-    struct MinHeapNode **array;
+    Int size;
+    Int* pos;
+    struct MinHeapNode** array;
 };
 
-// A utility function to create a new Min Heap Node
-struct MinHeapNode* newMinHeapNode(Int v, Long dist) {
-    struct MinHeapNode* minHeapNode =
-            (struct MinHeapNode*) malloc(sizeof(struct MinHeapNode));
-    minHeapNode->v = v;
-    minHeapNode->dist = dist;
+/**
+ * Creates a node for the MinHeap
+ * @param node number
+ * @param distance to the node from source
+ * @return the created node
+ */
+struct MinHeapNode* newMinHeapNode(Int node, Long distance) {
+    struct MinHeapNode* minHeapNode = (struct MinHeapNode*) malloc(sizeof(struct MinHeapNode));
+    minHeapNode->node = node;
+    minHeapNode->distance = distance;
     return minHeapNode;
 }
 
-// A utility function to create a Min Heap
+/**
+ * Creates new MinHeap structure
+ * @param capacity which is needed to allocate memory for storing the nodes
+ * @return
+ */
 struct MinHeap* createMinHeap(Int capacity) {
-    struct MinHeap* minHeap =
-            (struct MinHeap*) malloc(sizeof(struct MinHeap));
-    minHeap->pos = (Int *)malloc(capacity * sizeof(Int));
+    struct MinHeap* minHeap = (struct MinHeap*) malloc(sizeof(struct MinHeap));
+    minHeap->pos = (Int*) malloc(capacity * sizeof(Int));
     minHeap->size = 0;
-    minHeap->array =
-            (struct MinHeapNode**) malloc(capacity * sizeof(struct MinHeapNode*));
+    minHeap->array = (struct MinHeapNode**) malloc(capacity * sizeof(struct MinHeapNode*));
     return minHeap;
 }
 
-// A utility function to swap two nodes of min heap. Needed for min heapify
-void swapMinHeapNode(struct MinHeapNode** a, struct MinHeapNode** b) {
-    struct MinHeapNode* t = *a;
-    *a = *b;
-    *b = t;
+/**
+ * Swaps to Nodes in the MinHeap, used for Heapifying
+ * @param one first node to be swapped
+ * @param two second node to be swapped
+ */
+void swapMinHeapNode(struct MinHeapNode** one, struct MinHeapNode** two) {
+    struct MinHeapNode* t = *one;
+    *one = *two;
+    *two = t;
 }
 
-// A standard function to heapify at given idx
-// This function also updates position of nodes when they are swapped.
-// Position is needed for decreaseKey()
-void minHeapify(struct MinHeap* minHeap, Int idx) {
-    Int smallest, left, right;
-    smallest = idx;
-    left = 2 * idx + 1;
-    right = 2 * idx + 2;
 
-    if (left < minHeap->size &&
-        minHeap->array[left]->dist < minHeap->array[smallest]->dist )
-        smallest = left;
+/**
+ * This utility method is responsible for recursively updating the heap to make sure
+ * that both heap constraints are met
+ * @param minHeap to be heapified
+ * @param pos position to start
+ */
+void minHeapify(struct MinHeap* minHeap, Int pos) {
 
-    if (right < minHeap->size &&
-        minHeap->array[right]->dist < minHeap->array[smallest]->dist )
-        smallest = right;
+    Int smalledNode, leftChild, rightChild;
+    smalledNode = pos;
+    // Get the children of pos
+    leftChild = 2 * pos + 1;
+    rightChild = 2 * pos + 2;
 
-    if (smallest != idx) {
+    // Pick smalledNode node out of pos and it's children
+    if (leftChild < minHeap->size && minHeap->array[leftChild]->distance < minHeap->array[smalledNode]->distance ) {
+        smalledNode = leftChild;
+    }
+
+    if (rightChild < minHeap->size && minHeap->array[rightChild]->distance < minHeap->array[smalledNode]->distance ) {
+        smalledNode = rightChild;
+    }
+
+    // Obviously we only need to swap nodes if pos is actually greater than it's children
+    if (smalledNode != pos) {
         // The nodes to be swapped in min heap
-        struct MinHeapNode *smallestNode = minHeap->array[smallest];
-        struct MinHeapNode *idxNode = minHeap->array[idx];
+        struct MinHeapNode *smallestNode = minHeap->array[smalledNode];
+        struct MinHeapNode *idxNode = minHeap->array[pos];
 
-        // Swap positions
-        minHeap->pos[smallestNode->v] = idx;
-        minHeap->pos[idxNode->v] = smallest;
+        // swap positions of the smalledNode node and the input node
+        minHeap->pos[smallestNode->node] = pos;
+        minHeap->pos[idxNode->node] = smalledNode;
 
-        // Swap nodes
-        swapMinHeapNode(&minHeap->array[smallest], &minHeap->array[idx]);
+        // swap nodes
+        swapMinHeapNode(&minHeap->array[smalledNode], &minHeap->array[pos]);
 
-        minHeapify(minHeap, smallest);
+        minHeapify(minHeap, smalledNode);
     }
 }
 
-// A utility function to check if the given minHeap is ampty or not
-int isEmpty(struct MinHeap* minHeap) {
+
+/**
+ * Utility method which checks if heap is empty
+ * @param minHeap
+ * @return
+ */
+int isHeapEmpty(struct MinHeap *minHeap) {
     return (minHeap->size == 0);
 }
 
-// Standard function to extract minimum node from heap
+
+/**
+ * Method which extract minimum from heap and then updates the heap
+ * using minHeapify() to make sure heap constraints are still met
+ * @param minHeap
+ * @return minimum element of the given MinHeap
+ */
 struct MinHeapNode* extractMin(struct MinHeap* minHeap) {
 
-    if (isEmpty(minHeap))
+    if (isHeapEmpty(minHeap)) {
         return NULL;
+    }
 
-    // Store the root node
-    struct MinHeapNode* root = minHeap->array[0];
+    struct MinHeapNode* rootNode = minHeap->array[0];
 
-    // Replace root node with last node
+    // use last node of the heap-array to remove the first item
     struct MinHeapNode* lastNode = minHeap->array[minHeap->size - 1];
     minHeap->array[0] = lastNode;
 
-    // Update position of last node
-    minHeap->pos[root->v] = minHeap->size-1;
-    minHeap->pos[lastNode->v] = 0;
-
-    // Reduce heap size and heapify root
+    // we need to decrease the size of the heap and
+    // update the new first item's position as 0
+    minHeap->pos[rootNode->node] = minHeap->size-1;
+    minHeap->pos[lastNode->node] = 0;
     --minHeap->size;
+    // update the heap from the top to make sure that heap constraints are met
     minHeapify(minHeap, 0);
 
-    return root;
+    return rootNode;
 }
 
-// Function to decreasy dist value of a given vertex v. This function
-// uses pos[] of min heap to get the current index of node in min heap
-void decreaseKey(struct MinHeap* minHeap, Int v, Long dist) {
 
-    // Get the index of v in  heap array
-    Int i = minHeap->pos[v];
+/**
+ * Method to decrease distance to node from source
+ * Updating the distance might require moving the node up in the heap
+ * @param minHeap
+ * @param nodeNumber for node which distance is updated
+ * @param newDistance the new distance of the node
+ */
+void decreaseKey(struct MinHeap* minHeap, Int nodeNumber, Long newDistance) {
 
-    // Get the node and update its dist value
-    minHeap->array[i]->dist = dist;
+    // get the position of the Node in the heap-array
+    Int index = minHeap->pos[nodeNumber];
 
-    // Travel up while the complete tree is not hepified.
-    // This is a O(Logn) loop
-    while (i && minHeap->array[i]->dist < minHeap->array[(i - 1) / 2]->dist) {
+    // update the node's distance in the heap-array
+    minHeap->array[index]->distance = newDistance;
 
-        // Swap this node with its parent
-        minHeap->pos[minHeap->array[i]->v] = (i-1)/2;
-        minHeap->pos[minHeap->array[(i-1)/2]->v] = i;
-        swapMinHeapNode(&minHeap->array[i],  &minHeap->array[(i - 1) / 2]);
+    // since we changed the node's distance from source we might have to move the node
+    // up in the heap using swap operations if the parent of the element is grater
+    while (index && minHeap->array[index]->distance < minHeap->array[(index - 1) / 2]->distance) {
 
-        // move to parent index
-        i = (i - 1) / 2;
+        minHeap->pos[minHeap->array[index]->node] = (index-1)/2;
+        minHeap->pos[minHeap->array[(index-1)/2]->node] = index;
+        swapMinHeapNode(&minHeap->array[index],  &minHeap->array[(index - 1) / 2]);
+
+        // this is the node's parent index
+        index = (index - 1) / 2;
     }
 }
 
-// A utility function to check if a given vertex
-// 'v' is in min heap or not
-bool isInMinHeap(struct MinHeap *minHeap, Int v) {
+/**
+ * Checks if node is in MinHeap
+ * @param minHeap
+ * @param node
+ * @return true or false
+ */
+bool isNodeInMinHeap(struct MinHeap *minHeap, Int node) {
 
-    if (minHeap->pos[v] < minHeap->size)
+    if (minHeap->pos[node] < minHeap->size) {
         return true;
+    }
+
     return false;
 }
 
 
-// The main function that calulates distances of shortest paths from src to all
-// vertices. It is a O(ELogV) function
-Long *dijkstra(struct Graph *graph, Int src) {
+/**
+ * Main method to compute distances to all nodes from given source node
+ * @param graph
+ * @param sourceNode
+ * @return
+ */
+Long *dijkstra(struct Graph *graph, Int sourceNode) {
 
-    Int V = graph->V;// Get the number of vertices in graph
-    Long *dist = malloc(V * sizeof(Int*));      // dist values used to pick minimum weight edge in cut
+    Int V = graph->numberOfNodes;
 
-    // minHeap represents set E
+    // Array to store the distances to all V nodes
+    Long* dist = malloc(V * sizeof(Int*));
+
+    // create heap to be used as a priority queue to get the
+    // closest node by distance
     struct MinHeap* minHeap = createMinHeap(V);
 
-    // Initialize min heap with all vertices. dist value of all vertices
+    // we initialize the distance for all nodes as ULONG_MAX
     for (Int v = 0; v < V; ++v) {
         dist[v] = ULONG_MAX;
         minHeap->array[v] = newMinHeapNode(v, dist[v]);
         minHeap->pos[v] = v;
     }
 
-    // Make dist value of src vertex as 0 so that it is extracted first
-    dist[src] = 0;
-    decreaseKey(minHeap, src, dist[src]);
+    // sourceNode's distance needs to be 0 because that's where we start
+    dist[sourceNode] = 0;
+    decreaseKey(minHeap, sourceNode, dist[sourceNode]);
 
-    // Initially size of min heap is equal to V
     minHeap->size = V;
 
-    // In the followin loop, min heap contains all nodes
-    // whose shortest distance is not yet finalized.
-    while (!isEmpty(minHeap)) {
-        // Extract the vertex with minimum distance value
+    // In this loop we extract the node with the smallest distance from the heap
+    // It is removed from the heap and therefore finalized in dist
+    while (!isHeapEmpty(minHeap)) {
+
         struct MinHeapNode* minHeapNode = extractMin(minHeap);
-        Int u = minHeapNode->v;
+        Int nodeNumber = minHeapNode->node;
 
+        // From the extracted minimum element, get all outgoing edges using
+        // it's adjacency list and then update their distance values
+        struct AdjListNode* outgoingVertex = graph->adjListArray[nodeNumber].head;
+        while (outgoingVertex != NULL) {
 
-        // Store the extracted vertex number
-        // Traverse through all adjacent vertices of u (the extracted
-        // vertex) and update their distance values
-        struct AdjListNode* pCrawl = graph->array[u].head;
-        while (pCrawl != NULL) {
+            Int v = outgoingVertex->destination;
 
-            Int v = pCrawl->dest;
+            // We only update the distance if the node has not been finalized and
+            // if the new distance is actually smaller than the current one
+            if (isNodeInMinHeap(minHeap, v) && dist[nodeNumber] != ULONG_MAX &&
+                outgoingVertex->weight + dist[nodeNumber] < dist[v]) {
 
-            // If shortest distance to v is not finalized yet, and distance to v
-            // through u is less than its previously calculated distance
-            if (isInMinHeap(minHeap, v) && dist[u] != ULONG_MAX &&
-                pCrawl->weight + dist[u] < dist[v]) {
+                dist[v] = dist[nodeNumber] + outgoingVertex->weight;
 
-                dist[v] = dist[u] + pCrawl->weight;
-
-                // update distance value in min heap also
+                // values in heap needs to be updated as well
                 decreaseKey(minHeap, v, dist[v]);
 
             }
 
-            pCrawl = pCrawl->next;
-
+            // move to the next node of the AdjList for the next iteration
+            outgoingVertex = outgoingVertex->nextNode;
         }
-
+        // Since we lose the pointer of the MinHeapNode here (since we removed it from the heap)
+        // we need to free the allocated memory here
         free(minHeapNode);
-
     }
 
-
+    // Free all MinHeap related allocated memory since it's only used in this scope
     free(minHeap->array);
     free(minHeap->pos);
     free(minHeap);
-    // print the calculated shortest distances
+
     return dist;
 }
 
 
+/**
+ * Utility method to save input line in linked list
+ * Since the element is saved as the first element this operation is in O(1)
+ * @param linkedList
+ * @param from
+ * @param to
+ * @param weight
+ */
 void insertLineIntoLinkedList(struct InputLinkedList* linkedList, Int from, Int to, Long weight) {
     struct InputLine* line = (struct InputLine*) malloc(sizeof(struct InputLine));
     line->from = from;
@@ -304,20 +403,30 @@ void insertLineIntoLinkedList(struct InputLinkedList* linkedList, Int from, Int 
     linkedList->count++;
 }
 
-void insertShIntoShList(struct CampList *shList, Int nodeNumber) {
+/**
+ * Inserts node into the linked list of camps
+ * @param campList
+ * @param nodeNumber
+ */
+void insertCampIntoList(struct CampList* campList, Int nodeNumber) {
     struct CampElement* sh = (struct CampElement*) malloc(sizeof(struct CampElement));
-    sh->nextCamp = shList->head;
+    sh->nextCamp = campList->head;
     sh->nodeNumber = nodeNumber;
-    shList->head = sh;
-    shList->counter++;
+    campList->head = sh;
+    campList->counter++;
 }
 
 
-bool searchShInList(struct CampList* shList, Int nodeNumber) {
+/**
+ * Search if node is in list of camps
+ * @param campList
+ * @param nodeNumber
+ * @return true or false
+ */
+bool searchCampInList(struct CampList* campList, Int nodeNumber) {
 
-    struct CampElement* currentSh = shList->head;
+    struct CampElement* currentSh = campList->head;
 
-    // Construct graph from saved input
     while (currentSh != NULL) {
         if (nodeNumber == currentSh->nodeNumber) {
             return true;
@@ -339,7 +448,6 @@ void freeInput(struct InputLinkedList* inputLinkedList) {
     struct InputLine* currentLine = inputLinkedList->head;
     struct InputLine* tempLine;
 
-    // Construct graph from saved input and free input line
     while (currentLine != NULL) {
         tempLine = currentLine->next;
         free(currentLine);
@@ -360,19 +468,18 @@ void freeGraph(struct Graph* graph, Int V) {
 
     for (Int j = 0; j < V; ++j) {
 
-        // we are done with graph so we should free it
-        struct AdjListNode* adjListNode = graph->array[j].head;
+        struct AdjListNode* adjListNode = graph->adjListArray[j].head;
         struct AdjListNode* tempAdjListNode;
 
         while (adjListNode != NULL) {
-            tempAdjListNode = adjListNode->next;
+            tempAdjListNode = adjListNode->nextNode;
             free(adjListNode);
             adjListNode = tempAdjListNode;
         }
 
     }
 
-    free(graph->array);
+    free(graph->adjListArray);
     free(graph);
 }
 
@@ -423,17 +530,17 @@ void exitEarly(struct InputLinkedList* inputLinkedList, struct CampList* campLis
 int main(int argc, char *argv[]) {
 
 
-    // Anzahl der Knoten
-    Int V = 0;
+    Int nodeCount = 0;
     Int startNode = 0;
     Int endNode = 0;
     Long maxWeight = 0;
     bool firstLine = true;
     Int maxNumber = 4000000000;
 
-    // Input lesen
+    // for reading from stdin
     LongSigned fromNode, toNode;
     LongSigned weight;
+    // buffer
     char line[64];
     char eol;
 
@@ -446,15 +553,26 @@ int main(int argc, char *argv[]) {
     campList->head = NULL;
 
 
-    /* read at least 63 characters or unitl newline charater is encountered with */
-    /*    fgets(line, sizeof line, stdin) */
-    /* if the first character is a newline, then it's an empty line of input */
+    /*
+     * read until linefeed is encountered or the first 63 characters
+     * this is more than enough because numbers are at max 10 characters long
+     */
     while ((fgets(line, sizeof line, stdin) != NULL) && (line[0] != '\n')) {
-        /* parse the read line with sscanf */
 
+        /*
+         * Parse the line and extract it's values
+         * There are 4 legal cases for what lines can look like
+         * 1. 3 numbers and a line feed
+         * 2. 3 numbers without a line feed
+         * 3. 1 number and a line feed
+         * 4. 1 number without a line feed
+         *
+         * Therefore we need to catch the right case and act accordingly
+         * to save the input data
+         */
         if (sscanf(line, "%li%li%li", &fromNode, &toNode, &weight) == 3) {
 
-            // Check if the input consists of negative or too large numbers, since
+            // Check if the input consists of negative or too large numbers
             if (fromNode >= maxNumber || toNode >= maxNumber || weight >= maxNumber
                 || fromNode < 0 || toNode < 0 || weight < 0) {
                 printf("Bad input\n");
@@ -479,15 +597,14 @@ int main(int argc, char *argv[]) {
             } else {
 
                 insertLineIntoLinkedList(inputLinkedList, (Int) fromNode, (Int) toNode, (Long) weight);
-                // Anzahl der Knoten zählen
-                if (fromNode > V) {
-                    V = (Int) fromNode;
+
+                if (fromNode > nodeCount) {
+                    nodeCount = (Int) fromNode;
                 }
-                if (toNode > V) {
-                    V = (Int) toNode;
+                if (toNode > nodeCount) {
+                    nodeCount = (Int) toNode;
                 }
             }
-            fflush(stdout);
 
         } else if (sscanf(line, "%li", &fromNode) == 1) {
 
@@ -512,39 +629,41 @@ int main(int argc, char *argv[]) {
                 printf("No start node, end node or max weight specified\n");
                 exitEarly(inputLinkedList, campList);
             }
-            //printf("%d\n", fromNode);
-            insertShIntoShList(campList, fromNode);
+
+            insertCampIntoList(campList, fromNode);
 
         }
     }
 
 
-    V++;
+    nodeCount++;
 
+    // if no line has been read the input is faulty
     if (firstLine == true) {
         printf("No start node, end node or max weight specified\n");
         exitEarly(inputLinkedList, campList);
     }
 
+    // TODO: look into this case
     if (startNode == endNode) {
         printf("%u\n", startNode);
         exitEarly(inputLinkedList, campList);
     }
 
-    if (endNode > V) {
+    if (endNode > nodeCount) {
         exitEarly(inputLinkedList, campList);
     }
 
-    struct Graph* graph = createGraph(V);
-    struct Graph* reversedGraph = createGraph(V);
+    struct Graph* graph = createGraph(nodeCount);
+    struct Graph* reversedGraph = createGraph(nodeCount);
 
     struct InputLine* currentLine = inputLinkedList->head;
     struct InputLine* tempLine;
 
     // Construct graph from saved input and free input line
     while (currentLine != NULL) {
-        addEdge(graph, currentLine->from, currentLine->to, currentLine->weight);
-        addEdge(reversedGraph, currentLine->to, currentLine->from, currentLine->weight);
+        addEdgeToGraph(graph, currentLine->from, currentLine->to, currentLine->weight);
+        addEdgeToGraph(reversedGraph, currentLine->to, currentLine->from, currentLine->weight);
         tempLine = currentLine->next;
         free(currentLine);
         currentLine = tempLine;
@@ -554,17 +673,21 @@ int main(int argc, char *argv[]) {
 
     Long *dist = dijkstra(graph, (Int) startNode);
 
-    freeGraph(graph, V);
+    freeGraph(graph, nodeCount);
 
     Long *reverseDist = dijkstra(reversedGraph, (Int) endNode);
 
-    freeGraph(reversedGraph, V);
+    freeGraph(reversedGraph, nodeCount);
 
 
-    for (Int i = 0; i < V; ++i) {
+    /*
+     *  for every node if it's distance from source in the normal and transposed
+     *  is smaller than maxWeight and it's a camp it needs to be printed
+     */
+    for (Int i = 0; i < nodeCount; ++i) {
 
         if (dist[i] <= maxWeight && reverseDist[i] <= maxWeight) {
-            if (searchShInList(campList, i)) {
+            if (searchCampInList(campList, i)) {
                 printf("%d\n", i);
             }
         }
