@@ -527,7 +527,7 @@ void exitEarly(struct InputLinkedList* inputLinkedList, struct CampList* campLis
  * 6. Frees the memory allocated by malloc
  *
  */
-int main(int argc, char *argv[]) {
+int main() {
 
 
     Int nodeCount = 0;
