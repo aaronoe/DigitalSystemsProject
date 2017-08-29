@@ -638,6 +638,11 @@ int main() {
 
     nodeCount++;
 
+    if (nodeCount > 1000000000) {
+        printf("There are too many nodes");
+        exitEarly(inputLinkedList, campList);
+    }
+
     // if no line has been read the input is faulty
     if (firstLine == true) {
         printf("No start node, end node or max weight specified\n");
@@ -647,7 +652,6 @@ int main() {
     // TODO: look into this case
     if (startNode == endNode) {
         printf("%u\n", startNode);
-        exitEarly(inputLinkedList, campList);
     }
 
     if (endNode > nodeCount) {
@@ -687,6 +691,7 @@ int main() {
     for (Int i = 0; i < nodeCount; ++i) {
 
         if (dist[i] <= maxWeight && reverseDist[i] <= maxWeight) {
+            if (i == startNode && i == endNode) continue;
             if (searchCampInList(campList, i)) {
                 printf("%d\n", i);
             }
